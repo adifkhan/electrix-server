@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
 const app = express();
@@ -11,7 +12,7 @@ app.use(express.json());
 // electrixdb
 // Cc9FLHOzBdUxRarH
 
-const uri = `mongodb+srv://electrixdb:Cc9FLHOzBdUxRarH@cluster0.ew1mbi3.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.electriXDB_USER}:${process.env.electriXDB_PASS}@cluster0.ew1mbi3.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -30,7 +31,7 @@ async function run() {
       .collection("productCategories");
     const productCollection = client.db("electriX").collection("products");
 
-    // get the all product categories details //
+    // get the all product-categories //
     app.get("/categories", async (req, res) => {
       const query = {};
       const cursor = categoryCollection.find(query);
@@ -43,6 +44,23 @@ async function run() {
       const product = req.body;
       const result = await productCollection.insertOne(product);
       res.send(result);
+    });
+
+    // get products according to selected category //
+    app.get("/products", async (req, res) => {
+      const category = req.query.category;
+      console.log(category);
+      if (category === "ALL-CATEGORY") {
+        const query = {};
+        const cursor = productCollection.find(query);
+        const products = await cursor.toArray();
+        res.send(products);
+      } else {
+        const query = { category: category };
+        const cursor = productCollection.find(query);
+        const products = await cursor.toArray();
+        res.send(products);
+      }
     });
   } finally {
     // await client.close();
