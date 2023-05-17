@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
@@ -26,10 +27,35 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     client.connect;
+
+    const userCollection = client.db("electriX").collection("users");
     const categoryCollection = client
       .db("electriX")
       .collection("productCategories");
     const productCollection = client.db("electriX").collection("products");
+    const cartCollection = client.db("electriX").collection("carts");
+
+    // PUT user  //
+    app.put("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const user = req.body;
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: user,
+      };
+      const result = await userCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      const token = jwt.sign(
+        { email: email },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "3h" }
+      );
+      res.send({ result, token });
+    });
 
     // get the all product-categories //
     app.get("/categories", async (req, res) => {
@@ -49,7 +75,6 @@ async function run() {
     // get products according to selected category //
     app.get("/products", async (req, res) => {
       const category = req.query.category;
-      console.log(category);
       if (category === "ALL-CATEGORY") {
         const query = {};
         const cursor = productCollection.find(query);
@@ -61,6 +86,36 @@ async function run() {
         const products = await cursor.toArray();
         res.send(products);
       }
+    });
+
+    // post carts in database  //
+    app.post("/add-to-cart", async (req, res) => {
+      const email = req.query.email;
+      const filter = { email: email };
+      const cart = req.body;
+      const myCart = cartCollection.find(filter);
+      const cursor = await myCart.toArray();
+      const inCart = cursor.find((item) => item.productId === cart.productId);
+      if (inCart) {
+        inCart.quantity = inCart.quantity + 1;
+        const result = await cartCollection.replaceOne(
+          { _id: inCart._id },
+          inCart
+        );
+        res.send(result);
+      } else {
+        const result = await cartCollection.insertOne(cart);
+        res.send(result);
+      }
+    });
+
+    // get carts product by email //
+    app.get("/product-cart", async (req, res) => {
+      const email = req.query.email;
+      const filter = { email: email };
+      const result = cartCollection.find(filter);
+      const cart = await result.toArray();
+      res.send(cart);
     });
   } finally {
     // await client.close();
