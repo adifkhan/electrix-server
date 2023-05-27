@@ -155,19 +155,20 @@ async function run() {
     app.post("/addtocart", verifyJWT, async (req, res) => {
       const email = req.query.email;
       const filter = { email: email };
-      const cart = req.body;
-      const myCart = cartCollection.find(filter);
-      const cursor = await myCart.toArray();
-      const inCart = cursor.find((item) => item.productId === cart.productId);
+      const cursor = cartCollection.find(filter);
+      const myCart = await cursor.toArray();
+      const cartProduct = req.body;
+      const inCart = myCart.find(
+        (item) => item.productId === cartProduct.productId
+      );
       if (inCart) {
-        inCart.quantity = inCart.quantity + 1;
         const result = await cartCollection.replaceOne(
           { _id: inCart._id },
-          inCart
+          cartProduct
         );
         res.send(result);
       } else {
-        const result = await cartCollection.insertOne(cart);
+        const result = await cartCollection.insertOne(cartProduct);
         res.send(result);
       }
     });
