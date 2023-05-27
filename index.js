@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -24,10 +24,24 @@ const client = new MongoClient(uri, {
   },
 });
 
+// this function will verify JWT for clients requests //
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden Access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
+
 async function run() {
   try {
-    client.connect;
-
     const userCollection = client.db("electriX").collection("users");
     const categoryCollection = client
       .db("electriX")
@@ -52,9 +66,41 @@ async function run() {
       const token = jwt.sign(
         { email: email },
         process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: "3h" }
+        { expiresIn: "1d" }
       );
       res.send({ result, token });
+    });
+
+    // update user info //
+    app.put("/user", async (req, res) => {
+      const user = req.body;
+      const email = user.email;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: user,
+      };
+      const result = await userCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+
+    // get single user information by query //
+    app.get("/user", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      res.send(user);
+    });
+
+    // get all users information //
+    app.get("/allusers", async (req, res) => {
+      const query = {};
+      const allUsers = await userCollection.find(query).toArray();
+      res.send(allUsers);
     });
 
     // get the all product-categories //
@@ -66,7 +112,7 @@ async function run() {
     });
 
     // add or put a new product //
-    app.put("/product", async (req, res) => {
+    app.put("/product", verifyJWT, async (req, res) => {
       const product = req.body;
       const result = await productCollection.insertOne(product);
       res.send(result);
@@ -88,8 +134,25 @@ async function run() {
       }
     });
 
+    // get products of single seller/user //
+    app.get("/myproducts", verifyJWT, async (req, res) => {
+      const sellerId = req.query.sellerId;
+      const query = { sellerId: sellerId };
+      const result = productCollection.find(query);
+      const products = await result.toArray();
+      res.send(products);
+    });
+
+    /*  //delete single product //
+    app.delete("/product/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await productCollection.deleteOne(filter);
+      res.send(result);
+    }); */
+
     // post carts in database  //
-    app.post("/add-to-cart", async (req, res) => {
+    app.post("/addtocart", verifyJWT, async (req, res) => {
       const email = req.query.email;
       const filter = { email: email };
       const cart = req.body;
@@ -110,7 +173,7 @@ async function run() {
     });
 
     // get carts product by email //
-    app.get("/product-cart", async (req, res) => {
+    app.get("/mycart", verifyJWT, async (req, res) => {
       const email = req.query.email;
       const filter = { email: email };
       const result = cartCollection.find(filter);
