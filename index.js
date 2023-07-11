@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+require('dotenv').config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -48,6 +49,7 @@ async function run() {
       .collection('productCategories');
     const productCollection = client.db('electriX').collection('products');
     const cartCollection = client.db('electriX').collection('carts');
+    const orderCollection = client.db('electriX').collection('orders');
 
     // PUT user  //
     app.put('/user/:email', async (req, res) => {
@@ -188,6 +190,40 @@ async function run() {
       const result = cartCollection.find(filter);
       const cart = await result.toArray();
       res.send(cart);
+    });
+
+    // get orders of single buyer/user //
+    app.get('/myorders', verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const filter = { email: email };
+      const result = orderCollection.find(filter);
+      const myorders = await result.toArray();
+      res.send(myorders);
+    });
+
+    // payment intent //
+    app.post('/create-payment-intent', async (req, res) => {
+      const order = req.body;
+      const price = order.price;
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card'],
+      });
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
+    app.post('/payments', async (req, res) => {
+      const order = req.body;
+      const result = await orderCollection.insertOne(order);
+      res.send(result);
+    });
+    //clear user cart //
+    app.delete('/clear-cart', async (req, res) => {
+      const email = req.query.email;
+      const filter = { email: email };
+      const result = await cartCollection.deleteMany(filter);
+      res.send(result);
     });
   } finally {
     // await client.close();
