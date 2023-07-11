@@ -74,7 +74,7 @@ async function run() {
     });
 
     // update user info //
-    app.put('/user', async (req, res) => {
+    app.put('/user', verifyJWT, async (req, res) => {
       const user = req.body;
       const email = user.email;
       const filter = { email: email };
@@ -91,7 +91,7 @@ async function run() {
     });
 
     // get single user information by query //
-    app.get('/user', async (req, res) => {
+    app.get('/user', verifyJWT, async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
       const user = await userCollection.findOne(query);
@@ -99,7 +99,7 @@ async function run() {
     });
 
     // get all users information //
-    app.get('/allusers', async (req, res) => {
+    app.get('/allusers', verifyJWT, async (req, res) => {
       const query = {};
       const allUsers = await userCollection.find(query).toArray();
       res.send(allUsers);
@@ -176,7 +176,7 @@ async function run() {
     });
 
     // delete product from cart //
-    app.delete('/mycart', async (req, res) => {
+    app.delete('/mycart', verifyJWT, async (req, res) => {
       const id = req.query.id;
       const filter = { _id: new ObjectId(id) };
       const result = await cartCollection.deleteOne(filter);
@@ -202,7 +202,7 @@ async function run() {
     });
 
     // payment intent //
-    app.post('/create-payment-intent', async (req, res) => {
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
       const order = req.body;
       const price = order.price;
       const amount = price * 100;
@@ -213,13 +213,14 @@ async function run() {
       });
       res.send({ clientSecret: paymentIntent.client_secret });
     });
-    app.post('/payments', async (req, res) => {
+    // complete payment //
+    app.post('/payments', verifyJWT, async (req, res) => {
       const order = req.body;
       const result = await orderCollection.insertOne(order);
       res.send(result);
     });
     //clear user cart //
-    app.delete('/clear-cart', async (req, res) => {
+    app.delete('/clear-cart', verifyJWT, async (req, res) => {
       const email = req.query.email;
       const filter = { email: email };
       const result = await cartCollection.deleteMany(filter);
