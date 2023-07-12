@@ -91,7 +91,7 @@ async function run() {
     });
 
     // get single user information by query //
-    app.get('/user', verifyJWT, async (req, res) => {
+    app.get('/user', async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
       const user = await userCollection.findOne(query);
@@ -184,7 +184,7 @@ async function run() {
     });
 
     // get carts product by email //
-    app.get('/mycart', verifyJWT, async (req, res) => {
+    app.get('/mycart', async (req, res) => {
       const email = req.query.email;
       const filter = { email: email };
       const result = cartCollection.find(filter);
